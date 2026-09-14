@@ -11,11 +11,13 @@ asyncio.to_thread and the bot's event loop never blocks.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import secrets
 import sqlite3
 import string
 import time
+from collections.abc import Iterator
 from datetime import datetime, timezone
 
 import config
@@ -85,12 +87,26 @@ CREATE INDEX IF NOT EXISTS idx_shares_owner ON shares(owner_id);
 """
 
 
-def _connect() -> sqlite3.Connection:
+@contextlib.contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
+    """A connection that commits on the way out, and then actually closes.
+
+    `with sqlite3.connect(...)` alone is a *transaction* context, not a closing
+    one: it commits or rolls back and leaves the connection open, relying on
+    refcounting to release the file. That holds in CPython right up until a
+    frame keeps the object alive a moment longer — which on Windows means the
+    database file stays locked, and the first thing to notice was a test that
+    could not delete its own temporary directory.
+    """
     conn = sqlite3.connect(config.DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
-    return conn
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def _new_code(conn: sqlite3.Connection) -> str:

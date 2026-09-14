@@ -1,0 +1,55 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 is what the deployed bot runs on; 3.13 catches anything that
+        # only works on an older interpreter. Both, so neither drifts.
+        python: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Byte-compile everything
+        # Catches a syntax error in a module no test happens to import.
+        run: python -m compileall -q bot.py config.py selftest.py core cogs render vault deploy
+
+      - name: Run the offline test suite
+        # Network-free on purpose: a red build here means the code changed,
+        # not that YouTube did. The live checks are in selftest.py, which is
+        # run by hand against the real site.
+        run: python -m unittest discover -s tests -v
+
+      - name: No secrets in the tree
+        # The .gitignore covers these, but a mistake here is unrecoverable
+        # once pushed, so it is checked rather than trusted.
+        run: |
+          set -e
+          for f in .env NOTES.md data/vault.db; do
+            if git ls-files --error-unmatch "$f" 2>/dev/null; then
+              echo "::error::$f is tracked and must not be"
+              exit 1
+            fi
+          done
+          if git grep -nIE '(DISCORD_TOKEN=[A-Za-z0-9._-]{10,}|[MNO][A-Za-z0-9_-]{23,26}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,})' -- . ; then
+            echo "::error::something that looks like a bot token is committed"
+            exit 1
+          fi
+          echo "clean"

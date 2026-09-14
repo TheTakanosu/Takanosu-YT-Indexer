@@ -1,5 +1,7 @@
 # Takanosu YT-Indexer
 
+[![tests](https://github.com/TheTakanosu/Takanosu-YT-Indexer/actions/workflows/ci.yml/badge.svg)](https://github.com/TheTakanosu/Takanosu-YT-Indexer/actions/workflows/ci.yml)
+
 An ad-free YouTube indexing / search engine for Discord that needs **no official
 YouTube Data API key and no quota**. Search results come back as a 3×3 PNG that
 mimics the YouTube home page and matches Discord's Dark / Light / Ash / Onyx themes.
@@ -97,6 +99,18 @@ Discord**:
 ```bash
 python selftest.py
 ```
+
+There is also a network-free suite that CI runs on every push — region
+validation, translation integrity, the M3U contract, filename safety, index
+parsing, user isolation in the vault, and a check that no two commands answer
+to the same word:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The split is deliberate: a red build should mean the code changed, not that
+YouTube did.
 
 It prints which font each weight resolved to, checks all four languages for missing
 keys, exercises search / channel / trending / oEmbed / Spotify, renders all four
