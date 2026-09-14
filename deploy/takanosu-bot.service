@@ -1,0 +1,43 @@
+[Unit]
+Description=Takanosu YT-Indexer discord bot
+Documentation=https://github.com/TheTakanosu
+# The bot is useless without DNS and outbound TCP, so wait for real network.
+After=network-online.target
+Wants=network-online.target
+
+# Crash-loop guard. These belong in [Unit], not [Service] — systemd 249
+# (Ubuntu 22.04) silently ignores them if they sit under [Service].
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/takanosu-bot
+ExecStart=/opt/takanosu-bot/.venv/bin/python bot.py
+
+# YouTube blocks happen; the bot should come back rather than stay down.
+# YouTube blocks are transient; come back rather than staying down. The
+# crash-loop ceiling above stops this from hammering the same IP forever.
+Restart=always
+RestartSec=10
+
+# Logs go to the journal unbuffered: journalctl -u takanosu-bot -f
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+# --- hardening ---------------------------------------------------------
+# The bot only needs outbound HTTPS and its own data directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/takanosu-bot/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

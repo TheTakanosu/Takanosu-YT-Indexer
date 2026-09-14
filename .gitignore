@@ -1,0 +1,33 @@
+.env
+data/*.db
+data/exports/
+__pycache__/
+*.pyc
+.venv/
+
+# ---------------------------------------------------------------------------
+# NEVER COMMIT THESE
+# ---------------------------------------------------------------------------
+# cookies.txt holds live Google session cookies (SID, HSID, SSID, APISID,
+# SAPISID, LOGIN_INFO). Publishing it hands over the account itself, so it is
+# excluded everywhere and no example copy is kept in the repo.
+cookies.txt
+**/cookies.txt
+
+# Bridge file written by rpc_exporter.lua — generated output, and it reveals
+# whatever is playing right now.
+ghost_rpc.txt
+**/ghost_rpc.txt
+
+# Single-instance lock the RPC agent holds while it runs. Generated, empty,
+# and meaningless on another machine.
+ghost_rpc.lock
+**/ghost_rpc.lock
+
+# mpv binaries, if someone drops a full portable mpv into client/mpv/
+client/mpv/*.exe
+client/mpv/*.com
+client/mpv/*.dll
+
+# Operations notes: server address, key location, user ids. Not for publication.
+NOTES.md
