@@ -29,7 +29,26 @@ MAX_RETRIES = 3
 # command more than a cheap one, so `!playlist` stays comfortable while nobody
 # can flood the server with `!s`.
 USER_RATE = (9, 10.0)    # 9 tokens per 10 s per user  -> 3 searches or 9 cheap commands
-GUILD_RATE = (40, 15.0)  # 40 tokens per 15 s per guild
+GUILD_RATE = (15, 15.0)  # 15 tokens per 15 s per guild -> 5 searches or 15 cheap commands
+
+# Why the guild budget is not larger. The real ceiling is not this bucket, it is
+# how fast requests can leave the box: MIN_REQUEST_INTERVAL of 0.20 s caps the
+# process at five outbound requests a second, and a full `!s` costs about
+# sixteen of them, so the whole bot can serve roughly nineteen searches a
+# minute no matter how many servers ask.
+#
+# At the old 40 tokens a single guild could ask for thirteen searches every
+# fifteen seconds -- about fifty-three a minute, nearly three times what the bot
+# can actually do. Nothing crashed, because the heavy-work gate queues and then
+# answers "busy", but one lively server could hold the queue against every other
+# one. Fifteen tokens puts a guild at twenty searches a minute, which is the
+# measured capacity rather than a multiple of it.
+#
+# The two costs share one bucket, so lowering this also lowers how many cheap
+# commands a guild gets: fifteen per fifteen seconds, one a second, which a
+# normal server does not reach. If the bot ever runs in many busy servers at
+# once, the honest fix is separate budgets for cheap and expensive work rather
+# than squeezing this number further.
 
 # What each command costs. A search fans out to as many as six YouTube requests,
 # nine thumbnail downloads and a full-page Pillow render; !ping costs nothing

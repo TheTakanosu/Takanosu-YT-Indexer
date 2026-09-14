@@ -303,7 +303,7 @@ wording. It only chooses a message, so a wrong guess costs precision and never a
 | Pace | `Throttle`: 8 concurrent requests, ≥ 200 ms apart |
 | Errors | 3 attempts with exponential backoff and jitter |
 | Permanent errors | 404/410 are **not** retried — a missing playlist answers in 0.1 s instead of 8 |
-| Command flood | cost-weighted token bucket: 9 tokens / 10 s per user, 40 / 15 s per guild |
+| Command flood | cost-weighted token bucket: 9 tokens / 10 s per user, 15 / 15 s per guild |
 | Expensive work | at most **3** searches or renders in flight globally; past that the caller is told to retry |
 | Mass mentions | denied at the client, so a hostile video title can never ping a server |
 | Event loop | Pillow drawing and SQLite calls run in `asyncio.to_thread` |
