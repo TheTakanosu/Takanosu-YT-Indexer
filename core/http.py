@@ -59,8 +59,22 @@ CONSENT_COOKIES = {
     "PREF": "f6=40000000",
 }
 
-INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"  # public key of the WEB client
 INNERTUBE_CLIENT_VERSION = "2.20240701.00.00"
+
+# The innertube endpoint wants the web client's API key. It is not a
+# credential: YouTube publishes it in the page it serves to every anonymous
+# visitor, as `"INNERTUBE_API_KEY":"AIza..."`, the same value for everyone.
+# Measured — the key in youtube.com's own HTML is byte-for-byte the one the
+# continuation call needs.
+#
+# It is read from the page rather than pinned in the source for two reasons.
+# A pinned one breaks the day YouTube rotates it, which is the same failure
+# mode as every other hardcoded path this parser deliberately avoids. And a
+# credential-shaped literal in a public repository is indistinguishable from a
+# leaked credential to a secret scanner — and to a person reading the diff,
+# which is worse. Nothing to explain if it is not there.
+INNERTUBE_KEY_RE = re.compile(r'"INNERTUBE_API_KEY"\s*:\s*"([A-Za-z0-9_-]{20,})"')
+INNERTUBE_KEY_SOURCE = "https://www.youtube.com/"
 
 # YouTube ships the state tree as `var ytInitialData = {...}` on most responses
 # and as `window["ytInitialData"] = {...}` on others, so both are accepted.
@@ -107,6 +121,9 @@ class YouTubeSession:
 
     def __init__(self) -> None:
         self._session: aiohttp.ClientSession | None = None
+        # Learned from the first YouTube page this session fetches, which in
+        # practice is the search page the continuation call is paging through.
+        self._innertube_key: str | None = None
         self._throttle = Throttle(config.MAX_CONCURRENT_REQUESTS, config.MIN_REQUEST_INTERVAL)
         self._lock = asyncio.Lock()
 
@@ -186,6 +203,7 @@ class YouTubeSession:
                     # Retryable on purpose: a fresh identity often gets a real
                     # page on the next attempt.
                     raise BlockedError("ytInitialData assignment missing (blocked?)")
+                self._remember_innertube_key(body)
                 return body
             except NotFoundError:
                 raise
@@ -217,6 +235,35 @@ class YouTubeSession:
             url, params, lang=lang, require=None, extra_headers=headers
         )
 
+    def _remember_innertube_key(self, body: str) -> None:
+        """Picks the web client's API key out of a page already fetched.
+
+        Free: the search page the continuation is paging through carries it, so
+        the key is usually known before anything asks for it.
+        """
+        if self._innertube_key:
+            return
+        match = INNERTUBE_KEY_RE.search(body)
+        if match:
+            self._innertube_key = match.group(1)
+            log.info("innertube key read from the page")
+
+    async def _api_key(self) -> str:
+        """The key, fetching the home page once if nothing has supplied it yet.
+
+        Only reached when innertube is called before any page has been read,
+        which the search flow never does — it reads page one from HTML first.
+        """
+        if self._innertube_key:
+            return self._innertube_key
+        body = await self._get_body(
+            INNERTUBE_KEY_SOURCE, None, lang="en", require=None
+        )
+        self._remember_innertube_key(body)
+        if not self._innertube_key:
+            raise BlockedError("no innertube key in the page YouTube served")
+        return self._innertube_key
+
     async def innertube(
         self, endpoint: str, payload: dict[str, Any], *, region: str | None = None
     ) -> dict[str, Any]:
@@ -241,13 +288,15 @@ class YouTubeSession:
             lang=context["client"]["hl"],
         )
 
+        key = await self._api_key()
+
         last_error: Exception | None = None
         for attempt in range(config.MAX_RETRIES):
             try:
                 async with self._throttle:
                     async with self._session.post(
                         url,
-                        params={"key": INNERTUBE_KEY, "prettyPrint": "false"},
+                        params={"key": key, "prettyPrint": "false"},
                         json=body,
                         headers=headers,
                     ) as resp:

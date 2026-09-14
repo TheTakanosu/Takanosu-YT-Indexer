@@ -439,6 +439,16 @@ padded into it — as are `default` and `sddefault`. `mqdefault` (320×180) and
 `hq720` / `maxresdefault` (1280×720) are clean 16:9. Only `default`, `mqdefault` and
 `hqdefault` are generated for every video, so `mqdefault` is the safe clean choice.
 
+**The innertube key is read from the page, not pinned in the source.** The
+continuation endpoint wants the web client's API key, and YouTube publishes it in the
+HTML it serves every anonymous visitor — `"INNERTUBE_API_KEY":"AIza…"`, the same value
+for everyone, verified byte-for-byte against what the call needs. Pinning it would break
+the day YouTube rotates it, which is the same failure this parser avoids everywhere else;
+the search flow reads page one from HTML anyway, so the key arrives for free before
+anything asks for it. It also keeps a credential-shaped literal out of a public
+repository, where it is indistinguishable from a leaked credential to a scanner — and to
+a person reading the diff.
+
 **A page can pass a substring check and still fail to parse.** Checking the body for the
 *name* `ytInitialData` let block pages through as successes, and the parse then failed
 outside the retry loop. The check matches the *assignment* — both `var ytInitialData =`
