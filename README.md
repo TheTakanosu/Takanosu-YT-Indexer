@@ -524,10 +524,11 @@ UTF-8 with `errors="replace"`.
 ## Roadmap
 
 - **Vencord plugin** — shipped, and living in [Ghost-Engine-MPV-Setup](https://github.com/TheTakanosu/Ghost-Engine-MPV-Setup/tree/main/vencord-plugin): a play button on
-  the bot's messages that hands the list straight to your local mpv. It reads the
-  sender against an allowlist, validates every entry in a playlist before opening
-  it, and never starts mpv through a shell. Strictly optional — nothing here
-  depends on it.
+  YouTube links and `.m3u` attachments that hands them straight to your local
+  mpv. It validates every entry in a playlist before opening it, asks first when
+  the file came from a sender you have not trusted, and never starts mpv through
+  a shell. It is not tied to this bot — any `.m3u` works. Strictly optional:
+  nothing here depends on it.
 - **Per-command maintenance switch** — a runtime kill switch (`!disable spotify
   "under maintenance"`) so a broken module can answer with a notice instead of failing.
   About 50 lines and no second bot; the full CI/CD shadow-bot idea is a lot of
