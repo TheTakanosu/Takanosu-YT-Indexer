@@ -207,8 +207,10 @@ Identical queries also hit a 15-minute smart cache and answer instantly.
 
 ## Client-side playback (mpv)
 
-The player side lives in **[client/](client/)** — full instructions in
-[client/README.md](client/README.md).
+The player side is its own project: **[Ghost-Engine-MPV-Setup](https://github.com/TheTakanosu/Ghost-Engine-MPV-Setup)**.
+One download and one double-click sets up mpv, yt-dlp and the Rich Presence
+agent — no binaries are shipped, and yt-dlp is verified against its published
+checksum before it is installed.
 
 ```
 bot → .m3u → mpv.conf + scripts/ghost.lua → rpc_exporter.lua
@@ -216,11 +218,11 @@ bot → .m3u → mpv.conf + scripts/ghost.lua → rpc_exporter.lua
                                           → ghost_rpc.py → Discord Rich Presence
 ```
 
-With that folder in place, an audio export switches itself to audio-only — just open
-the file, no flags. mpv also starts the Rich Presence agent itself and the agent exits
-with the player, so there is nothing to launch and no Windows startup entry. Rich Presence shows the video's own thumbnail, the title, the
-channel and a real progress bar, reporting **Listening** for audio and **Watching**
-for video.
+Once it is installed, an audio export switches itself to audio-only — just open the
+file, no flags. mpv starts the Rich Presence agent itself and the agent exits with the
+player, so there is nothing to launch and no Windows startup entry. The card shows the
+video's own thumbnail, the title, the channel and a real progress bar, reporting
+**Listening** for audio and **Watching** for video.
 
 ### The `#GHOST_AUDIO` contract
 
@@ -356,8 +358,8 @@ cogs/
   admin.py             !setregion !language !theme !setchannel !clearchannel !setprefix
   meta.py              !help !commands !credits !ping !selftest
   common.py            grid view, buttons, pagination, index parsing, heavy-work gate
-client/mpv/            mpv config, Lua scripts, Rich Presence agent
-client/vencord/        GhostPlay: optional Vencord plugin, plays a result in local mpv
+(the player side — mpv config, Lua scripts, the Rich Presence agent and the
+ GhostPlay Vencord plugin — lives in Ghost-Engine-MPV-Setup)
 deploy/                systemd unit, deployment guide, JSON→SQLite migration
 ```
 
@@ -452,11 +454,6 @@ mean deleting it and saving the queue again — which mints a new share code and
 every `GHOST-XXXXXX` already posted in chat. `!renamepl <name/num> | <new name>` changes
 the name in place and leaves the code alone.
 
-**Audio exports still get a window.** `#GHOST_AUDIO` sets `vid=no`, and with no video
-track mpv opens no window at all — leaving a playlist running with no way to seek, pause
-or change the volume short of a terminal nobody has open. `ghost.lua` sets `force-window`
-alongside it, so an audio list gets the usual window and on-screen controls.
-
 **`!show` prints the list, it does not attach it.** Both `!playlist` and `!show` answer
 the same question — what is in this list — so they render the same way: numbered titles,
 no URLs. The old version built a text dump with a link under every track, which doubled
@@ -468,41 +465,6 @@ nobody can read without opening it. Someone who wants the links is better served
 untitled, and returning `None` made the stream vanish with no explanation. It is now
 named after its channel, localised to the search region.
 
-**Discord fits two RPC buttons on one row only under ~30 characters.** Measured:
-`Watch on YouTube` + `Discord Server` (30) sits in a row; adding a `▶` (32) stacks them.
-There is no API for asking. `Watch YouTube` would add margin but reads as watching the
-site rather than the video.
-
-**The Rich Presence timer anchors to playback, not to the track change.** yt-dlp takes
-several seconds to resolve a track, and mpv knows the title before audio starts —
-anchoring there counted the whole load and put the clock seconds ahead. The exporter
-reports `core-idle`, so the agent shows the track without a timer until sound actually
-starts, and re-anchors if the clock drifts more than 3 s.
-
-**mpv starts the Rich Presence agent; Windows does not.** The agent used to be
-installed as a Startup-folder shortcut, which meant it ran from sign-in to shut-down to
-serve a player that is closed most of the day — and Task Manager's Startup tab labelled
-the row `pythonw.exe`, because that tab names the program being launched rather than the
-shortcut. `rpc_exporter.lua` now spawns the agent when mpv opens, and the agent exits a
-few seconds after mpv is gone. There is no startup entry to recognise or to remove, and
-nothing to install.
-
-**The interpreter is not renamed for a prettier Task Manager row.** That was the other
-way to fix the label: copying `pythonw.exe` to `GhostEngineRPC.exe` works and does
-produce a nicer one — but renaming an interpreter to disguise it is a textbook malware
-technique that antivirus software flags. Shipping a compiled `.exe` instead trades a
-readable Python file for an unsigned binary a stranger should trust *less*.
-
-**The agent reads the player before it requires Discord.** The reconnect backoff ends in
-a `continue`, so checking the connection first meant an agent that could not reach
-Discord never got as far as reading the bridge — and would sit in that backoff forever
-waiting to report a player that had already closed, which is precisely the leftover
-process the design is meant to avoid. The same check covers the other end: an agent that
-has not seen a player within 30 seconds of starting leaves too, so there is no state in
-which it waits indefinitely for an mpv that is never coming. An advisory lock file,
-released by the operating system when its holder dies, keeps a second mpv window from
-starting a second agent.
-
 **The embed scraper is not a workaround for the Developer API — it outlives it.** The
 portal's Development Mode caps an app at 25 manually added users, and Extended Quota
 Mode is an application written for companies, so a community bot cannot serve arbitrary
@@ -512,6 +474,10 @@ grants. The anonymous route the web player itself uses is closed too — measure
 `open.spotify.com/get_access_token` answers 403 and `/api/token` answers 400. The embed
 needs no key, no allowlist, no consent screen and nothing that expires; what it costs is
 the 100-track ceiling above and a dependency on Spotify's markup.
+
+The player side has its own decisions — why mpv starts the presence agent instead of
+Windows, why the interpreter is not renamed, why an audio playlist still gets a
+window — written down in [Ghost-Engine-MPV-Setup](https://github.com/TheTakanosu/Ghost-Engine-MPV-Setup#design-decisions).
 
 **No client mod is required for anything.** Vencord and BetterDiscord are client
 modifications, which Discord's terms of service prohibit; they are widely tolerated, but
@@ -533,12 +499,11 @@ UTF-8 with `errors="replace"`.
 
 ## Roadmap
 
-- **Vencord plugin** — an icon beside a message that hands a list straight to the
-  viewer's local mpv, so a single video or playlist plays without downloading an `.m3u`
-  first. A first version lives in [client/vencord/](client/vencord/): it reads the sender
-  against an allowlist, validates every entry in a playlist before opening it, and never
-  starts mpv through a shell. Installed by building Vencord from source — never bundled
-  with the bot, and strictly optional for the reason above.
+- **Vencord plugin** — shipped, and living in [Ghost-Engine-MPV-Setup](https://github.com/TheTakanosu/Ghost-Engine-MPV-Setup/tree/main/vencord-plugin): a play button on
+  the bot's messages that hands the list straight to your local mpv. It reads the
+  sender against an allowlist, validates every entry in a playlist before opening
+  it, and never starts mpv through a shell. Strictly optional — nothing here
+  depends on it.
 - **Per-command maintenance switch** — a runtime kill switch (`!disable spotify
   "under maintenance"`) so a broken module can answer with a notice instead of failing.
   About 50 lines and no second bot; the full CI/CD shadow-bot idea is a lot of
