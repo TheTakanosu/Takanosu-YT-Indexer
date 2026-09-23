@@ -525,10 +525,10 @@ UTF-8 with `errors="replace"`.
 
 - **Vencord plugin** — shipped, and living in [Ghost-Engine-MPV-Setup](https://github.com/TheTakanosu/Ghost-Engine-MPV-Setup/tree/main/vencord-plugin): a play button on
   YouTube links and `.m3u` attachments that hands them straight to your local
-  mpv. It validates every entry in a playlist before opening it, asks first when
-  the file came from a sender you have not trusted, and never starts mpv through
-  a shell. It is not tied to this bot — any `.m3u` works. Strictly optional:
-  nothing here depends on it.
+  mpv. It validates every entry in a playlist before opening it, will only ever
+  execute an mpv binary, and asks in a dialog the sandbox cannot suppress before
+  anything starts. It is not tied to this bot — any `.m3u` works. Strictly
+  optional: nothing here depends on it.
 - **Per-command maintenance switch** — a runtime kill switch (`!disable spotify
   "under maintenance"`) so a broken module can answer with a notice instead of failing.
   About 50 lines and no second bot; the full CI/CD shadow-bot idea is a lot of
